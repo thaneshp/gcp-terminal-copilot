@@ -1,18 +1,20 @@
 import os
 import asyncio
 import httpx
+import logging
 from typing import Optional
 from contextlib import AsyncExitStack
-from typing import Any, Dict, Optional, List, Union
-
+from typing import Any, Optional
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
 from dotenv import load_dotenv
-
 from rich.console import Console
 
-load_dotenv()
+logging.basicConfig(
+    level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger("gcp-terminal-copilot")
 
 class MCPClient:
     def __init__(self):
@@ -30,14 +32,8 @@ class MCPClient:
         """Connect to an MCP server
 
         Args:
-            server_script_path: Path to the server script (.py or .js)
+            server_script_path: Path to the server script
         """
-        # is_python = server_script_path.endswith('.py')
-        # is_js = server_script_path.endswith('.js')
-        # if not (is_python or is_js):
-        #     raise ValueError("Server script must be a .py or .js file")
-
-        # command = "python" if is_python else "node"
         server_params = StdioServerParameters(
             command="npx",
             args=["-y", server_script_path],
@@ -50,7 +46,6 @@ class MCPClient:
 
         await self.session.initialize()
 
-        # List available tools
         response = await self.session.list_tools()
         tools = response.tools
         self.available_tools = tools
@@ -58,28 +53,42 @@ class MCPClient:
 
     async def send_command(
         self, command: str, ollama_host: str, ollama_model: str
-    ) -> Union[Dict[str, Any], List[Any], str]:
-    
-        print(f"Processing: {command}")
-    
-        gcp_command = await self.translate_to_gcpmcp_command(
-            command, ollama_host, ollama_model
-        )
-        if gcp_command != command:
-            print(f"Translated to: {gcp_command}")
+    ):
+        """Send command to Ollama
         
-        result_metadata = {
-            "original_command": command,
-            "gcp_command": gcp_command,
-        }
+        Args:
+            command: Natural Language command passed in by user
+            ollama_host: Host URL of Ollama
+            ollama_model: Model used for translation
+        """
 
-        response = await self.session.call_tool(
-            gcp_command
-        )
+        print(f"Processing: {command}")
 
-        print(response)
+        try:
+            gcp_command = await self.translate_to_gcpmcp_command(
+                command, ollama_host, ollama_model
+            )
+
+            if gcp_command != command: print(f"Translated to: {gcp_command}")
+            response = await self.session.call_tool(
+                gcp_command
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Failed to execute command: {str(e)}")
+            return {"error": f"Command execution failed: {str(e)}"}
     
-    async def translate_to_gcpmcp_command(self, natural_language_query: str, ollama_host: str, ollama_model: str) -> str:
+    async def translate_to_gcpmcp_command(
+        self, natural_language_query: str, ollama_host: str, ollama_model: str
+    ) -> str:
+        """Translate the command into a GCP MCP command
+
+        Args:
+            natural_language_query: Natural Language Query given by user
+            ollama_host: Host URL of Ollama
+            ollama_model: Model used for translation
+        """
+
         available_commands = []
 
         if self.available_tools:
@@ -102,7 +111,8 @@ class MCPClient:
                 Available commands:
                 {command_list}
                 
-                Only return the suggested command and nothing else. Do not include any Markdown, formatting or backticks.
+                Only return the suggested command from the available commands and nothing else. 
+                Do not include any Markdown, formatting or backticks.
                 """
         
         try:
@@ -134,14 +144,19 @@ class MCPClient:
                     )
                     return natural_language_query
         except Exception as e:
-            print(f"Failed to translate query: {str(e)}")
+            logger.error(f"Failed to translate query: {str(e)}")
             return natural_language_query
 
 
 async def main(): 
     load_dotenv()
+    server_script_path = os.getenv("SERVER_SCRIPT_PATH")
     ollama_host = os.getenv("OLLAMA_HOST")
     ollama_model = os.getenv("OLLAMA_MODEL")
+
+    if not server_script_path:
+        print("ERROR: SERVER_SCRIPT_PATH environment variable not set")
+        return
 
     ollama_available = False
     try:
@@ -154,9 +169,8 @@ async def main():
     
     client = MCPClient()
 
-    
     try:
-        await client.connect_to_server("/Users/thaneshp/Documents/git/gcp-mcp")
+        await client.connect_to_server(server_script_path)
 
         if ollama_available:
             print("\n✓ Ollama is available for natural language processing")
@@ -172,8 +186,8 @@ async def main():
                     "Example: 'List all GCP projects I have access to' or 'What's my current billing status?'"
                 )
             else:
-                print("Enter Azure CLI command (or 'exit' to quit)")
-                print("Example: 'group list' or 'storage account list'")
+                print("Enter gcloud CLI command (or 'exit' to quit)")
+                print("Example: 'gcloud projects list' or 'gcloud storage buckets list'")
 
             user_input = input("> ")
 
@@ -184,6 +198,8 @@ async def main():
                 continue
             
             result = await client.send_command(user_input, ollama_host, ollama_model)
+            print("\n🔹 Response:")
+            print(result)
     finally:
         await client.cleanup()
 
