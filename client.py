@@ -70,8 +70,20 @@ class MCPClient:
             )
 
             if gcp_command != command: print(f"Translated to: {gcp_command}")
+            gcp_command = gcp_command.strip().split()
+            tool_name = gcp_command[0]
+            tool_args = {}
+
+            i = 1
+            while i < len(gcp_command):
+                if gcp_command[i].startswith("--"):
+                    param_name = gcp_command[i][2:]
+                    param_value = gcp_command[i + 1]
+                    tool_args.update({param_name: param_value})
+                    i += 2
+            
             response = await self.session.call_tool(
-                gcp_command
+                name=tool_name, arguments=tool_args
             )
             return response
         except Exception as e:
@@ -88,33 +100,52 @@ class MCPClient:
             ollama_host: Host URL of Ollama
             ollama_model: Model used for translation
         """
-
-        available_commands = []
-
-        if self.available_tools:
-            available_commands.extend(
-                [
-                    tool.name
-                    for tool in self.available_tools
-                    if hasattr(tool, "name")
-                ]
-            )
-
-            available_commands = list(set(available_commands))
-            command_list = "\n".join([f"- {cmd}" for cmd in available_commands])
-
-            system_prompt = f"""
-                You are an gcloud CLI expert. Translate the user's 
-                natural language query into the appropriate
-                gcloud CLI command based on the available commands.
         
-                Available commands:
-                {command_list}
-                
-                Only return the suggested command from the available commands and nothing else. 
-                Do not include any Markdown, formatting or backticks.
-                """
-        
+        command_details = {}
+        for tool in self.available_tools:
+            name = getattr(tool, "name", None)
+            inputSchema = getattr(tool, "inputSchema", None)
+            if name:
+                properties = inputSchema.get("properties")
+                param_info = []
+                if properties:
+                    for param_name, param_details in properties.items():
+                        param_type = param_details.get("type")
+                        param_description = param_details.get("description")
+
+                        param_info.append({
+                            "name": param_name,
+                            "type": param_type,
+                            "description": param_description
+                        })
+
+                    command_details[name] = param_info
+                else:
+                    command_details[name] = []
+
+        command_list = []
+        for command, params in command_details.items():
+            command_list.append(f"- {command}")
+            if params:
+                for param in params:
+                    command_list.append(
+                        f"  --{param['name']} ({param['type']}): {param['description']}"
+                    )
+
+        command_list_str = "\n".join(command_list)
+
+        system_prompt = f"""
+            You are an gcloud CLI expert. Translate the user's 
+            natural language query into the appropriate
+            gcloud CLI command based on the available commands.
+    
+            Available commands:
+            {command_list_str}
+            
+            Only return the suggested command from the available commands and nothing else. 
+            Do not include any Markdown, formatting or backticks.
+            """
+        print(f"System prompt: {system_prompt}")
         try:
             print(f"Calling Ollama to translate '{natural_language_query}'")
 
@@ -198,6 +229,7 @@ async def main():
                 continue
             
             result = await client.send_command(user_input, ollama_host, ollama_model)
+            
             print("\n🔹 Response:")
             print(result)
     finally:
