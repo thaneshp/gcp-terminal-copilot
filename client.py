@@ -9,6 +9,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from dotenv import load_dotenv
 from rich.console import Console
+import json
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -178,6 +179,16 @@ class MCPClient:
             logger.error(f"Failed to translate query: {str(e)}")
             return natural_language_query
 
+def print_text_content(response):
+    content = response.content[0]
+
+    if hasattr(content, "text"):
+        data = content.text
+        try:
+            parsed = json.loads(data)
+            print(json.dumps(parsed, indent=2))
+        except:
+            print(data)
 
 async def main(): 
     load_dotenv()
@@ -231,7 +242,7 @@ async def main():
             result = await client.send_command(user_input, ollama_host, ollama_model)
             
             print("\n🔹 Response:")
-            print(result)
+            print_text_content(result)
     finally:
         await client.cleanup()
 
