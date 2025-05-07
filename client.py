@@ -146,7 +146,7 @@ class MCPClient:
             Only return the suggested command from the available commands and nothing else. 
             Do not include any Markdown, formatting or backticks.
             """
-        print(f"System prompt: {system_prompt}")
+
         try:
             print(f"Calling Ollama to translate '{natural_language_query}'")
 
@@ -178,17 +178,17 @@ class MCPClient:
         except Exception as e:
             logger.error(f"Failed to translate query: {str(e)}")
             return natural_language_query
+    
+    def print_text_content(response):
+        content = response.content[0]
 
-def print_text_content(response):
-    content = response.content[0]
-
-    if hasattr(content, "text"):
-        data = content.text
-        try:
-            parsed = json.loads(data)
-            print(json.dumps(parsed, indent=2))
-        except:
-            print(data)
+        if hasattr(content, "text"):
+            data = content.text
+            try:
+                parsed = json.loads(data)
+                print(json.dumps(parsed, indent=2))
+            except:
+                print(data)
 
 async def main(): 
     load_dotenv()
@@ -242,7 +242,7 @@ async def main():
             result = await client.send_command(user_input, ollama_host, ollama_model)
             
             print("\n🔹 Response:")
-            print_text_content(result)
+            MCPClient.print_text_content(result)
     finally:
         await client.cleanup()
 
