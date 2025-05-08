@@ -2,6 +2,8 @@
 
 A Python-based GCP CLI assistant that provides natural language processing capabilities for `gcloud` commands leveraging [GCP MCP Server](https://github.com/eniayomi/gcp-mcp).
 
+![](./static/console.gif)
+
 ## Prerequisites
 
 - Python 3.11+ (as specified in pyproject.toml)
