@@ -4,11 +4,13 @@ import httpx
 import os
 import asyncio
 
-async def main(): 
+
+async def main():
     load_dotenv()
     server_script_path = os.getenv("SERVER_SCRIPT_PATH")
     ollama_host = os.getenv("OLLAMA_HOST")
     ollama_model = os.getenv("OLLAMA_MODEL")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
 
     if not server_script_path:
         print("ERROR: SERVER_SCRIPT_PATH environment variable not set")
@@ -22,7 +24,7 @@ async def main():
                 ollama_available = True
     except Exception:
         pass
-    
+
     client = MCPClient()
 
     try:
@@ -31,7 +33,7 @@ async def main():
         if ollama_available:
             print("\n✓ Ollama is available for natural language processing")
             print(f"   Using model: {ollama_model}")
-        
+
         while True:
             print("\n" + "=" * 50)
             if ollama_available:
@@ -43,22 +45,25 @@ async def main():
                 )
             else:
                 print("Enter gcloud CLI command (or 'exit' to quit)")
-                print("Example: 'gcloud projects list' or 'gcloud storage buckets list'")
+                print(
+                    "Example: 'gcloud projects list' or 'gcloud storage buckets list'"
+                )
 
             user_input = input("> ")
 
             if user_input.lower() in ("exit", "quit", "q"):
                 break
-            
+
             if not user_input.strip():
                 continue
-            
+
             result = await client.send_command(user_input, ollama_host, ollama_model)
-            
+
             print("\n🔹 Response:")
             MCPClient.print_text_content(result)
     finally:
         await client.cleanup()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
