@@ -10,6 +10,7 @@ from mcp.client.stdio import stdio_client
 from dotenv import load_dotenv
 from rich.console import Console
 import json
+from adapter import OpenAIAdapter, ModelAdapter
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -150,15 +151,20 @@ class MCPClient:
         try:
             print(f"Calling Ollama to translate '{natural_language_query}'")
 
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": natural_language_query},
+            ]
+
+            model = ModelAdapter(OpenAIAdapter(api_key=""))
+            print(model.query(messages))
+
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{ollama_host}/api/chat",
                     json={
                         "model": ollama_model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": natural_language_query},
-                        ],
+                        "messages": messages,
                         "stream": False,
                     },
                 )
