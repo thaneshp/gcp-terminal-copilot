@@ -1,16 +1,12 @@
-import os
-import asyncio
-import httpx
 import logging
 from typing import Optional
 from contextlib import AsyncExitStack
 from typing import Any, Optional
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from dotenv import load_dotenv
 from rich.console import Console
 import json
-from adapter import OpenAIAdapter, ModelAdapter
+from adapter import ModelAdapter, OllamaAdapter
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -103,6 +99,49 @@ class MCPClient:
             ollama_model: Model used for translation
         """
         
+        command_list = "\n".join(self._get_command_list())
+
+        system_prompt = f"""
+            You are an gcloud CLI expert. Translate the user's 
+            natural language query into the appropriate
+            gcloud CLI command based on the available commands.
+    
+            Available commands:
+            {command_list}
+            
+            Only return the suggested command from the available commands and nothing else. 
+            Do not include any Markdown, formatting or backticks.
+            """
+
+        try:
+            print(f"Calling Ollama to translate '{natural_language_query}'")
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": natural_language_query},
+            ]
+
+            model = ModelAdapter(OllamaAdapter(ollama_host, ollama_model))
+            response = await model.query(messages)
+            return response
+        except Exception as e:
+            logger.error(f"Failed to translate query: {str(e)}")
+            return natural_language_query
+    
+    @staticmethod
+    def print_text_content(response):
+        content = response.content[0]
+
+        if hasattr(content, "text"):
+            data = content.text
+            try:
+                parsed = json.loads(data)
+                print(json.dumps(parsed, indent=2))
+            except:
+                print(data)
+
+    def _get_command_list(self):
+        """Get the list of available commands and their parameters"""
         command_details = {}
         for tool in self.available_tools:
             name = getattr(tool, "name", None)
@@ -134,123 +173,4 @@ class MCPClient:
                         f"  --{param['name']} ({param['type']}): {param['description']}"
                     )
 
-        command_list_str = "\n".join(command_list)
-
-        system_prompt = f"""
-            You are an gcloud CLI expert. Translate the user's 
-            natural language query into the appropriate
-            gcloud CLI command based on the available commands.
-    
-            Available commands:
-            {command_list_str}
-            
-            Only return the suggested command from the available commands and nothing else. 
-            Do not include any Markdown, formatting or backticks.
-            """
-
-        try:
-            print(f"Calling Ollama to translate '{natural_language_query}'")
-
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": natural_language_query},
-            ]
-
-            model = ModelAdapter(OpenAIAdapter(api_key=""))
-            print(model.query(messages))
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{ollama_host}/api/chat",
-                    json={
-                        "model": ollama_model,
-                        "messages": messages,
-                        "stream": False,
-                    },
-                )
-
-                if response.status_code == 200:
-                    result = response.json()
-                    gcp_command = result["message"]["content"].strip()
-                    print(
-                        f"Translated '{natural_language_query}' to '{gcp_command}'"
-                    )
-                    return gcp_command
-                else:
-                    print(
-                        f"Ollama API error: {response.status_code} - {response.text}"
-                    )
-                    return natural_language_query
-        except Exception as e:
-            logger.error(f"Failed to translate query: {str(e)}")
-            return natural_language_query
-    
-    def print_text_content(response):
-        content = response.content[0]
-
-        if hasattr(content, "text"):
-            data = content.text
-            try:
-                parsed = json.loads(data)
-                print(json.dumps(parsed, indent=2))
-            except:
-                print(data)
-
-async def main(): 
-    load_dotenv()
-    server_script_path = os.getenv("SERVER_SCRIPT_PATH")
-    ollama_host = os.getenv("OLLAMA_HOST")
-    ollama_model = os.getenv("OLLAMA_MODEL")
-
-    if not server_script_path:
-        print("ERROR: SERVER_SCRIPT_PATH environment variable not set")
-        return
-
-    ollama_available = False
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{ollama_host}/api/version")
-            if response.status_code == 200:
-                ollama_available = True
-    except Exception:
-        pass
-    
-    client = MCPClient()
-
-    try:
-        await client.connect_to_server(server_script_path)
-
-        if ollama_available:
-            print("\n✓ Ollama is available for natural language processing")
-            print(f"   Using model: {ollama_model}")
-        
-        while True:
-            print("\n" + "=" * 50)
-            if ollama_available:
-                print(
-                    "Enter your Google Cloud request in natural language (or 'exit' to quit)"
-                )
-                print(
-                    "Example: 'List all GCP projects I have access to' or 'What's my current billing status?'"
-                )
-            else:
-                print("Enter gcloud CLI command (or 'exit' to quit)")
-                print("Example: 'gcloud projects list' or 'gcloud storage buckets list'")
-
-            user_input = input("> ")
-
-            if user_input.lower() in ("exit", "quit", "q"):
-                break
-            
-            if not user_input.strip():
-                continue
-            
-            result = await client.send_command(user_input, ollama_host, ollama_model)
-            
-            print("\n🔹 Response:")
-            MCPClient.print_text_content(result)
-    finally:
-        await client.cleanup()
-
-if __name__ == "__main__":
-    asyncio.run(main())
+        return command_list
