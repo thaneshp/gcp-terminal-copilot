@@ -34,7 +34,7 @@ class ClaudeAPI:
 
 
 class OpenAIAdapter:
-    def __init__(self, api_key, model_name):
+    def __init__(self, api_key, model_name: str = "gpt-3.5-turbo"):
         self.model_name = model_name
         self.api_key = api_key
         self.client = OpenAI(api_key=api_key)

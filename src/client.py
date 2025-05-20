@@ -17,11 +17,12 @@ logger = logging.getLogger("gcp-terminal-copilot")
 
 
 class MCPClient:
-    def __init__(self):
+    def __init__(self, system_prompt_template: str):
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.available_tools = []
         self.console = Console()
+        self.system_prompt_template = system_prompt_template
 
     async def cleanup(self):
         if self.exit_stack:
@@ -53,7 +54,7 @@ class MCPClient:
         self.available_tools = tools
         print("\nConnected to server with tools:", [tool.name for tool in tools])
 
-    async def send_command(self, command: str, ollama_host: str, ollama_model: str):
+    async def send_command(self, command: str, model: ModelAdapter):
         """Send command to Ollama
 
         Args:
@@ -66,7 +67,7 @@ class MCPClient:
 
         try:
             gcp_command = await self.translate_to_gcpmcp_command(
-                command, ollama_host, ollama_model
+                command, model
             )
 
             if gcp_command != command:
@@ -90,7 +91,7 @@ class MCPClient:
             return {"error": f"Command execution failed: {str(e)}"}
 
     async def translate_to_gcpmcp_command(
-        self, natural_language_query: str, ollama_host: str, ollama_model: str
+        self, natural_language_query: str, model: ModelAdapter
     ) -> str:
         """Translate the command into a GCP MCP command
 
@@ -102,7 +103,7 @@ class MCPClient:
 
         command_list = "\n".join(self._get_command_list())
 
-        system_prompt = process_template("01.jinja", {"command_list": command_list})
+        system_prompt = process_template(self.system_prompt_template, {"command_list": command_list})
 
         try:
             print(f"Calling LLM to translate '{natural_language_query}'")
@@ -112,7 +113,6 @@ class MCPClient:
                 {"role": "user", "content": natural_language_query},
             ]
 
-            model = ModelAdapter(OllamaAdapter(ollama_host, ollama_model))
             response = await model.query(messages)
             return response
         except Exception as e:
