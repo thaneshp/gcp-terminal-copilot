@@ -1,0 +1,55 @@
+from deepeval import assert_test
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+from deepeval.metrics import GEval
+from src.client import MCPClient
+from src.adapter import ModelAdapter, OllamaAdapter
+import pytest
+
+
+@pytest.mark.asyncio
+async def test_correctness():
+    correctness_metric = GEval(
+        name="Correctness",
+        criteria="Determine if the 'actual output' is correct based on the 'expected output'.",
+        evaluation_params=[
+            LLMTestCaseParams.ACTUAL_OUTPUT,
+            LLMTestCaseParams.EXPECTED_OUTPUT,
+        ],
+        threshold=0.5,
+    )
+
+    client = MCPClient(system_prompt_template="01.jinja")
+    model = ModelAdapter(OllamaAdapter("http://localhost:11434", "gemma3:4b"))
+    user_input = "List all projects I have access to"
+    commands = [
+        "- run-gcp-code",
+        "  --reasoning (string): The reasoning behind the code",
+        '  --code (string): Your job is to answer questions about GCP environment by writing Javascript/TypeScript code using Google Cloud Client Libraries. The code must adhere to a few rules:\n- Must use promises and async/await\n- Think step-by-step before writing the code, approach it logically\n- Must be written in TypeScript using official Google Cloud client libraries\n- Avoid hardcoded values like project IDs\n- Code written should be as parallel as possible enabling the fastest and most optimal execution\n- Code should handle errors gracefully, especially when doing multiple API calls\n- Each error should be handled and logged with a reason, script should continue to run despite errors\n- Data returned from GCP APIs must be returned as JSON containing only the minimal amount of data needed to answer the question\n- All extra data must be filtered out\n- Code MUST "return" a value: string, number, boolean or JSON object\n- If code does not return anything, it will be considered as FAILED\n- Whenever tool/function call fails, retry it 3 times before giving up\n- When listing resources, ensure pagination is handled correctly\n- Do not include any comments in the code\n- Try to write code that returns as few data as possible to answer without any additional processing required\nBe concise, professional and to the point. Do not give generic advice, always reply with detailed & contextual data sourced from the current GCP environment.',
+        "  --projectId (string): GCP project ID to use",
+        "  --region (string): Region to use (if not provided, us-central1 is used)",
+        "- list-projects",
+        "- select-project",
+        "  --projectId (string): ID of the GCP project to select",
+        "  --region (string): Region to use (if not provided, us-central1 is used)",
+        "- get-billing-info",
+        "  --projectId (string): Project ID to get billing info for (defaults to selected project)",
+        "- get-cost-forecast",
+        "  --projectId (string): Project ID to get forecast for (defaults to selected project)",
+        "  --months (number): Number of months to forecast (default: 3)",
+        "- get-billing-budget",
+        "  --projectId (string): Project ID to get budgets for (defaults to selected project)",
+        "- list-gke-clusters",
+        "  --location (string): Location (region or zone) to list clusters from (defaults to all locations)",
+        "- list-sql-instances",
+        "- get-logs",
+        "  --filter (string): Filter for the log entries (see Cloud Logging query syntax)",
+        "  --pageSize (number): Maximum number of entries to return (default: 10)",
+    ]
+    output = await client.translate_to_gcpmcp_command(user_input, commands, model)
+
+    test_case = LLMTestCase(
+        input=user_input,
+        actual_output=output,
+        expected_output="list-projects",
+    )
+    assert_test(test_case, [correctness_metric])

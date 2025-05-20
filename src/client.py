@@ -6,8 +6,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from rich.console import Console
 import json
-from adapter import ModelAdapter, OllamaAdapter
-from utilities import process_template
+from src.adapter import ModelAdapter, OllamaAdapter
+from src.utilities import process_template
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -66,8 +66,10 @@ class MCPClient:
         print(f"Processing: {command}")
 
         try:
+            command_list = self._get_command_list()
+            print(command_list)
             gcp_command = await self.translate_to_gcpmcp_command(
-                command, model
+                command, command_list, model
             )
 
             if gcp_command != command:
@@ -91,19 +93,23 @@ class MCPClient:
             return {"error": f"Command execution failed: {str(e)}"}
 
     async def translate_to_gcpmcp_command(
-        self, natural_language_query: str, model: ModelAdapter
+        self,
+        natural_language_query: str,
+        available_commands: list,
+        model: ModelAdapter,
     ) -> str:
         """Translate the command into a GCP MCP command
 
         Args:
             natural_language_query: Natural Language Query given by user
-            ollama_host: Host URL of Ollama
-            ollama_model: Model used for translation
+            available_commands: List of available commands
+            model: Model used for translation
         """
+        command_list = "\n".join(available_commands)
 
-        command_list = "\n".join(self._get_command_list())
-
-        system_prompt = process_template(self.system_prompt_template, {"command_list": command_list})
+        system_prompt = process_template(
+            self.system_prompt_template, {"command_list": command_list}
+        )
 
         try:
             print(f"Calling LLM to translate '{natural_language_query}'")

@@ -5,6 +5,7 @@ import os
 import asyncio
 from adapter import ModelAdapter, OllamaAdapter, OpenAIAdapter
 
+
 async def main():
     load_dotenv()
     server_script_path = os.getenv("SERVER_SCRIPT_PATH")
@@ -42,7 +43,7 @@ async def main():
             print("✓ Using OpenAI for natural language processing")
             print(f"   Model: {openai_model} or as configured")
             model = ModelAdapter(OpenAIAdapter(openai_api_key, openai_model))
-            
+
         while True:
             print("\n" + "=" * 50)
             print(
