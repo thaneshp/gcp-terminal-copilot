@@ -7,6 +7,7 @@ from mcp.client.stdio import stdio_client
 from rich.console import Console
 import json
 from adapter import ModelAdapter, OllamaAdapter
+from utilities import process_template
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -101,17 +102,7 @@ class MCPClient:
 
         command_list = "\n".join(self._get_command_list())
 
-        system_prompt = f"""
-            You are an gcloud CLI expert. Translate the user's 
-            natural language query into the appropriate
-            gcloud CLI command based on the available commands.
-    
-            Available commands:
-            {command_list}
-            
-            Only return the suggested command from the available commands and nothing else. 
-            Do not include any Markdown, formatting or backticks.
-            """
+        system_prompt = process_template("01.jinja", {"command_list": command_list})
 
         try:
             print(f"Calling LLM to translate '{natural_language_query}'")
