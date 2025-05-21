@@ -1,10 +1,9 @@
 from deepeval import assert_test
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from deepeval.metrics import GEval
-from src.client import MCPClient
-from src.adapter import ModelAdapter, OllamaAdapter
+from client import MCPClient
+from adapter import ModelAdapter, OllamaAdapter
 import pytest
-
 
 @pytest.mark.asyncio
 async def test_correctness():

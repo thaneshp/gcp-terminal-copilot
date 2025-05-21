@@ -5,7 +5,6 @@ import os
 import asyncio
 from adapter import ModelAdapter, OllamaAdapter, OpenAIAdapter
 
-
 async def main():
     load_dotenv()
     server_script_path = os.getenv("SERVER_SCRIPT_PATH")

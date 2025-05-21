@@ -13,7 +13,7 @@ def process_template(template_file: str, data: dict[str, Any]) -> str:
         str: The rendered template as a string.
     """
     jinja_env = Environment(
-        loader=FileSystemLoader(searchpath="../prompts/system"),
+        loader=FileSystemLoader(searchpath="prompts/system"),
         autoescape=select_autoescape(),
     )
     template = jinja_env.get_template(template_file)

@@ -6,8 +6,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from rich.console import Console
 import json
-from src.adapter import ModelAdapter, OllamaAdapter
-from src.utilities import process_template
+from adapter import ModelAdapter, OllamaAdapter
+from utilities import process_template
 
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
