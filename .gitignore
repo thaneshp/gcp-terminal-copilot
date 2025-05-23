@@ -9,3 +9,9 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# DeepEval files
+.deepeval
+.deepeval-cache.json
+.deepeval_telemetry.txt
+data/
