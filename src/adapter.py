@@ -23,9 +23,7 @@ class OllamaAdapter:
                 gcp_command = result["message"]["content"].strip()
                 return gcp_command
             else:
-                raise Exception(
-                    f"Ollama API error: {response.status_code} - {response.text}"
-                )
+                raise Exception(f"Ollama API error: {response.status_code} - {response.text}")
         return response
 
 
@@ -40,9 +38,7 @@ class OpenAIAdapter:
         self.client = OpenAI(api_key=api_key)
 
     async def query(self, messages):
-        response = self.client.chat.completions.create(
-            model=self.model_name, messages=messages, temperature=0
-        )
+        response = self.client.chat.completions.create(model=self.model_name, messages=messages, temperature=0)
         return response.choices[0].message.content
 
 

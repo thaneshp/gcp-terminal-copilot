@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 from contextlib import AsyncExitStack
-from typing import Any, Optional
+from typing import Optional, List
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from rich.console import Console
@@ -9,15 +9,14 @@ import json
 from adapter import ModelAdapter, OllamaAdapter
 from utilities import process_template
 
-logging.basicConfig(
-    level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger("gcp-terminal-copilot")
 
 
 class MCPClient:
     def __init__(self, system_prompt_template: str):
+        """Initialize the MCPClient."""
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.available_tools = []
@@ -25,27 +24,22 @@ class MCPClient:
         self.system_prompt_template = system_prompt_template
 
     async def cleanup(self):
+        """Clean up resources."""
         if self.exit_stack:
             await self.exit_stack.aclose()
-            print("Resources cleaned up")
+            print("Resources cleaned up...")
 
     async def connect_to_server(self, server_script_path: str):
-        """Connect to an MCP server
+        """Connect to an MCP server.
 
         Args:
-            server_script_path: Path to the server script
+            server_script_path (str): Path to the server script
         """
-        server_params = StdioServerParameters(
-            command="npx", args=["-y", server_script_path], env=None
-        )
+        server_params = StdioServerParameters(command="npx", args=["-y", server_script_path], env=None)
 
-        stdio_transport = await self.exit_stack.enter_async_context(
-            stdio_client(server_params)
-        )
+        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
         self.stdio, self.write = stdio_transport
-        self.session = await self.exit_stack.enter_async_context(
-            ClientSession(self.stdio, self.write)
-        )
+        self.session = await self.exit_stack.enter_async_context(ClientSession(self.stdio, self.write))
 
         await self.session.initialize()
 
@@ -55,22 +49,19 @@ class MCPClient:
         print("\nConnected to server with tools:", [tool.name for tool in tools])
 
     async def send_command(self, command: str, model: ModelAdapter):
-        """Send command to Ollama
+        """Send given command to the Language Model
 
         Args:
-            command: Natural Language command passed in by user
-            ollama_host: Host URL of Ollama
-            ollama_model: Model used for translation
+            command (str): Natural Language command passed in by user
+            model (ModelAdapter): Model used for translation
         """
 
         print(f"Processing: {command}")
 
         try:
-            command_list = self._get_command_list()
+            command_list = self._build_command_list()
             print(command_list)
-            gcp_command = await self.translate_to_gcpmcp_command(
-                command, command_list, model
-            )
+            gcp_command = await self.translate_to_gcpmcp_command(command, command_list, model)
 
             if gcp_command != command:
                 print(f"Translated to: {gcp_command}")
@@ -104,12 +95,13 @@ class MCPClient:
             natural_language_query: Natural Language Query given by user
             available_commands: List of available commands
             model: Model used for translation
+
+        Returns:
+            str: Translated command
         """
         command_list = "\n".join(available_commands)
 
-        system_prompt = process_template(
-            self.system_prompt_template, {"command_list": command_list}
-        )
+        system_prompt = process_template(self.system_prompt_template, {"command_list": command_list})
 
         try:
             print(f"Calling LLM to translate '{natural_language_query}'")
@@ -127,6 +119,7 @@ class MCPClient:
 
     @staticmethod
     def print_text_content(response):
+        """Print the text content of the response"""
         content = response.content[0]
 
         if hasattr(content, "text"):
@@ -137,8 +130,16 @@ class MCPClient:
             except:
                 print(data)
 
-    def _get_command_list(self):
-        """Get the list of available commands and their parameters"""
+    def _build_command_list(self) -> List[str]:
+        """
+        Build a list of available commands and their parameters to be used in the system prompt.
+
+        Returns:
+            list: A list of command descriptions and their parameters.
+        """
+        if not self.available_tools:
+            return []
+
         command_details = {}
         for tool in self.available_tools:
             name = getattr(tool, "name", None)
@@ -168,8 +169,6 @@ class MCPClient:
             command_list.append(f"- {command}")
             if params:
                 for param in params:
-                    command_list.append(
-                        f"  --{param['name']} ({param['type']}): {param['description']}"
-                    )
+                    command_list.append(f"  --{param['name']} ({param['type']}): {param['description']}")
 
         return command_list

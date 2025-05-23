@@ -14,3 +14,4 @@ wheels/
 .deepeval
 .deepeval-cache.json
 .deepeval_telemetry.txt
+data/

@@ -5,6 +5,7 @@ import os
 import asyncio
 from adapter import ModelAdapter, OllamaAdapter, OpenAIAdapter
 
+
 async def main():
     load_dotenv()
     server_script_path = os.getenv("SERVER_SCRIPT_PATH")
@@ -39,18 +40,14 @@ async def main():
             print(f"   Using model: {ollama_model}")
             model = ModelAdapter(OllamaAdapter(ollama_host, ollama_model))
         elif model_provider == "openai":
-            print("✓ Using OpenAI for natural language processing")
-            print(f"   Model: {openai_model} or as configured")
+            print("\n✓ Using OpenAI for natural language processing")
+            print(f"   Using model: {openai_model}")
             model = ModelAdapter(OpenAIAdapter(openai_api_key, openai_model))
 
         while True:
             print("\n" + "=" * 50)
-            print(
-                "Enter your Google Cloud request in natural language (or 'exit' to quit)"
-            )
-            print(
-                "Example: 'List all GCP projects I have access to' or 'What's my current billing status?'"
-            )
+            print("Enter your Google Cloud request in natural language (or 'exit' to quit)")
+            print("Example: 'List all GCP projects I have access to' or 'What's my current billing status?'")
 
             user_input = input("> ")
 
