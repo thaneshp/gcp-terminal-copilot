@@ -112,7 +112,7 @@ class MCPClient:
             ]
 
             response = await model.query(messages)
-            return response
+            return response.strip()
         except Exception as e:
             logger.error(f"Failed to translate query: {str(e)}")
             return natural_language_query
