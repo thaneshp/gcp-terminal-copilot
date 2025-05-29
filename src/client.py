@@ -60,7 +60,6 @@ class MCPClient:
 
         try:
             command_list = self._build_command_list()
-            print(command_list)
             gcp_command = await self.translate_to_gcpmcp_command(command, command_list, model)
 
             if gcp_command != command:
